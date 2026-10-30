@@ -13,6 +13,7 @@ from blobquest.config import Config
 from blobquest.env import BlobEnv, Event, Outcome
 from blobquest.memory import NO_ACTION, ReplayMemory, Transition
 from blobquest.metrics import EpisodeRecord, EvalRecord, TrainingHistory
+from blobquest.mistakes import MistakeLog
 from blobquest.schedules import make_schedule
 from blobquest.state import StateEncoder
 from blobquest.world import Position, World, build_world
@@ -80,6 +81,7 @@ class Trainer:
         self.epsilon = make_schedule(config.agent.epsilon, episodes)
         self.alpha = make_schedule(config.agent.alpha, episodes)
         self.history = TrainingHistory(self.world.rows, self.world.cols)
+        self.mistakes = MistakeLog()
 
     def train(self) -> TrainingHistory:
         """Run all configured episodes and return the recorded history."""
@@ -103,6 +105,7 @@ class Trainer:
         total = 0.0
 
         s = enc.encode(env.reset())
+        self.history.explored[env.position] = True
         a = agent.act(s, epsilon)
         while True:
             result = env.step(a)
@@ -116,6 +119,8 @@ class Trainer:
             total += result.reward
             events.update(result.events)
             self.history.visits[env.position] += 1
+            for cell in env.cells_entered:
+                self.history.explored[cell] = True
             if result.terminated or result.truncated:
                 break
             s, a = s_next, a_next
@@ -124,6 +129,7 @@ class Trainer:
             for old in self.memory.sample(self.config.memory.replay_updates):
                 agent.update(old, alpha)
 
+        self.mistakes.record(episode, result.outcome, env.position, env.energy)
         return EpisodeRecord(
             episode=episode,
             total_reward=total,

@@ -13,10 +13,10 @@ from typing import Any, Literal
 
 import yaml
 
-Algorithm = Literal["q_learning", "sarsa"]
+Algorithm = Literal["q_learning", "sarsa", "random"]
 ScheduleKind = Literal["constant", "linear", "exponential"]
 
-ALGORITHMS: tuple[str, ...] = ("q_learning", "sarsa")
+ALGORITHMS: tuple[str, ...] = ("q_learning", "sarsa", "random")
 SCHEDULE_KINDS: tuple[str, ...] = ("constant", "linear", "exponential")
 
 

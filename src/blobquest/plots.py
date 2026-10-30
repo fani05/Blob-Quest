@@ -19,6 +19,7 @@ from matplotlib.patches import Patch
 from blobquest.config import OutputConfig
 from blobquest.env import action_deltas
 from blobquest.metrics import TrainingHistory, moving_average
+from blobquest.mistakes import MistakeLog
 from blobquest.render import NO_POLICY
 from blobquest.tiles import TILE_CHARS, Tile
 from blobquest.world import Position, World
@@ -57,6 +58,12 @@ def _figure(cfg: OutputConfig, size: tuple[float, float] | None = None) -> tuple
     fig = Figure(figsize=size or (cfg.figure_width, cfg.figure_height), facecolor=SURFACE)
     FigureCanvasAgg(fig)
     ax = fig.add_subplot()
+    _style_axis(ax)
+    return fig, ax
+
+
+def _style_axis(ax: Axes) -> None:
+    """Shared look: light surface, muted spines and grid behind the data."""
     ax.set_facecolor(SURFACE)
     for side in ("top", "right"):
         ax.spines[side].set_visible(False)
@@ -65,7 +72,6 @@ def _figure(cfg: OutputConfig, size: tuple[float, float] | None = None) -> tuple
     ax.tick_params(colors=INK_MUTED)
     ax.grid(True, color=GRID, linewidth=THIN_LINE)
     ax.set_axisbelow(True)
-    return fig, ax
 
 
 def _finish(fig: Figure, ax: Axes, title: str, path: Path, dpi: int) -> Path:
@@ -240,6 +246,42 @@ def plot_visits(history: TrainingHistory, world: World, cfg: OutputConfig, path:
     return _finish(fig, ax, "Where the blob went during training", path, cfg.plot_dpi)
 
 
+def plot_mistakes(
+    mistakes: MistakeLog, world: World, num_episodes: int, cfg: OutputConfig, path: Path, top_n: int = 10
+) -> Path:
+    """Repeated-mistake rate per window (left) and the deadliest cells (right)."""
+    fig = Figure(figsize=(cfg.figure_width * 1.5, cfg.figure_height), facecolor=SURFACE)
+    FigureCanvasAgg(fig)
+    ax, bars = fig.subplots(1, 2)
+    _style_axis(ax)
+    _style_axis(bars)
+
+    windows = mistakes.repeat_rate_by_window(cfg.moving_average_window, num_episodes)
+    x = [w.end for w in windows]
+    ax.plot(x, [w.rate for w in windows], color=SERIES[1], linewidth=LINE_WIDTH, marker="o", markersize=4)
+    ax.set_ylim(0.0, 1.05)
+    ax.set_xlim(0, max(num_episodes, 1))
+    ax.set_xlabel("episode")
+    ax.set_ylabel(f"repeated deaths / deaths (per {cfg.moving_average_window})")
+    ax.set_title("Dying where it died before", color=INK, loc="left")
+
+    cells = mistakes.deadliest_cells(top_n)
+    if cells:
+        labels = [f"({r},{c}) {TILE_CHARS[world.tile_at((r, c))]}" for (r, c), _ in cells]
+        counts = [count for _, count in cells]
+        positions = np.arange(len(cells))[::-1]
+        bars.barh(positions, counts, color=SERIES[1])
+        bars.set_yticks(positions, labels)
+        for y, count in zip(positions, counts, strict=True):
+            bars.text(count, y, f" {count}", va="center", color=INK, fontsize="small")
+        bars.grid(False, axis="y")
+    else:
+        bars.text(0.5, 0.5, "no deaths recorded", ha="center", va="center", color=INK_MUTED, transform=bars.transAxes)
+        bars.set_yticks([])
+    bars.set_xlabel("deaths")
+    return _finish(fig, bars, f"Top {top_n} deadliest cells", path, cfg.plot_dpi)
+
+
 def save_all_plots(
     history: TrainingHistory,
     world: World,
@@ -249,10 +291,11 @@ def save_all_plots(
     diagonals: bool,
     cfg: OutputConfig,
     out_dir: Path,
+    mistakes: MistakeLog | None = None,
 ) -> list[Path]:
     """Write every plot to ``out_dir`` and return the created file paths."""
     out_dir.mkdir(parents=True, exist_ok=True)
-    return [
+    paths = [
         plot_rewards(history, cfg, out_dir / "rewards.png"),
         plot_outcomes(history, cfg, out_dir / "outcomes.png"),
         plot_steps(history, cfg, out_dir / "steps.png"),
@@ -262,3 +305,6 @@ def save_all_plots(
         plot_value_map(world, values, cfg, out_dir / "value_map.png"),
         plot_visits(history, world, cfg, out_dir / "visits.png"),
     ]
+    if mistakes is not None:
+        paths.append(plot_mistakes(mistakes, world, len(history.episodes), cfg, out_dir / "mistakes.png"))
+    return paths

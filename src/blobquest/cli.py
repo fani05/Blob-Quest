@@ -12,7 +12,7 @@ from blobquest.config import ALGORITHMS, Config, ConfigError, load_config
 from blobquest.env import Outcome
 from blobquest.persistence import PLOTS_DIR, create_run_dir, load_run, save_run
 from blobquest.plots import save_all_plots
-from blobquest.render import LEGEND, policy_and_values, render_world
+from blobquest.render import FOG_LEGEND, LEGEND, policy_and_values, render_fog, render_world, side_by_side
 from blobquest.state import energy_bucket
 from blobquest.trainer import Trainer
 from blobquest.world import WorldGenerationError, build_world
@@ -72,9 +72,11 @@ def cmd_train(args: argparse.Namespace) -> int:
         "final_greedy_outcome": rollout.outcome.value,
         "final_greedy_steps": rollout.steps,
         "final_greedy_reward": rollout.total_reward,
+        "failed_episodes": len(trainer.mistakes),
+        "repeat_mistake_rate": trainer.mistakes.repeat_rate(),
     }
     run_dir = create_run_dir(config.output.runs_dir, config.output.run_name)
-    save_run(run_dir, config, trainer.world, trainer.agent, history, summary)
+    save_run(run_dir, config, trainer.world, trainer.agent, history, summary, trainer.mistakes)
     if config.output.save_plots:
         save_all_plots(
             history,
@@ -85,12 +87,19 @@ def cmd_train(args: argparse.Namespace) -> int:
             config.movement.diagonals,
             config.output,
             run_dir / PLOTS_DIR,
+            trainer.mistakes,
         )
 
     print("\nGreedy policy (best-rested trained state per cell, no boosters used):")
     print(render_world(trainer.world, policy=policy))
     print(f"\nGreedy run: {rollout.outcome.value} in {rollout.steps} steps, reward {rollout.total_reward:.1f}")
     print(render_world(trainer.world, path=rollout.path))
+    print()
+    fog = render_fog(trainer.world, history.explored, rollout.path)
+    print(side_by_side(fog, render_world(trainer.world), "What the blob saw", "True map"))
+    print(FOG_LEGEND)
+    print("\nDeadliest cells:")
+    print(trainer.mistakes.format_deadliest(trainer.world))
     print("\nSummary:")
     for key, value in summary.items():
         print(f"  {key:<28} {value:.3f}" if isinstance(value, float) else f"  {key:<28} {value}")

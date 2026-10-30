@@ -14,6 +14,7 @@ import yaml
 from blobquest.agents import TabularAgent
 from blobquest.config import Config, load_config, save_config
 from blobquest.metrics import EPISODE_FIELDS, EVAL_FIELDS, TrainingHistory
+from blobquest.mistakes import MISTAKE_FIELDS, MistakeLog
 from blobquest.world import World
 
 CONFIG_FILE = "config.yaml"
@@ -21,6 +22,7 @@ QTABLE_FILE = "q_table.npz"
 WORLD_FILE = "world.txt"
 EPISODES_FILE = "episodes.csv"
 EVALS_FILE = "evaluations.csv"
+MISTAKES_FILE = "mistakes.csv"
 SUMMARY_FILE = "summary.yaml"
 PLOTS_DIR = "plots"
 
@@ -63,6 +65,7 @@ def save_run(
     agent: TabularAgent,
     history: TrainingHistory,
     summary: dict[str, Any],
+    mistakes: MistakeLog | None = None,
 ) -> None:
     """Write every artefact of a finished run into ``run_dir``."""
     save_config(config, run_dir / CONFIG_FILE)
@@ -71,6 +74,8 @@ def save_run(
     np.save(run_dir / "visits.npy", history.visits)
     _write_csv(run_dir / EPISODES_FILE, EPISODE_FIELDS, [astuple(r) for r in history.episodes])
     _write_csv(run_dir / EVALS_FILE, EVAL_FIELDS, [astuple(r) for r in history.evaluations])
+    if mistakes is not None:
+        _write_csv(run_dir / MISTAKES_FILE, MISTAKE_FIELDS, [astuple(m) for m in mistakes.mistakes])
     with (run_dir / SUMMARY_FILE).open("w", encoding="utf-8") as handle:
         yaml.safe_dump(summary, handle, sort_keys=False)
 

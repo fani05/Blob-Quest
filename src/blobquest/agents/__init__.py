@@ -9,11 +9,12 @@ import numpy as np
 
 from blobquest.agents.base import TabularAgent
 from blobquest.agents.q_learning import QLearningAgent
+from blobquest.agents.random_agent import RandomAgent
 from blobquest.agents.sarsa import SarsaAgent
 from blobquest.config import AgentConfig
 
 AGENTS: Mapping[str, type[TabularAgent]] = MappingProxyType(
-    {QLearningAgent.name: QLearningAgent, SarsaAgent.name: SarsaAgent}
+    {QLearningAgent.name: QLearningAgent, SarsaAgent.name: SarsaAgent, RandomAgent.name: RandomAgent}
 )
 
 
@@ -26,4 +27,4 @@ def make_agent(config: AgentConfig, num_states: int, num_actions: int, rng: np.r
     return cls(num_states, num_actions, config.gamma, config.initial_q, rng)
 
 
-__all__ = ["AGENTS", "QLearningAgent", "SarsaAgent", "TabularAgent", "make_agent"]
+__all__ = ["AGENTS", "QLearningAgent", "RandomAgent", "SarsaAgent", "TabularAgent", "make_agent"]

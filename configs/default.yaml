@@ -46,7 +46,7 @@ rewards:
   speed_booster: 1.0
 
 agent:
-  algorithm: q_learning   # q_learning | sarsa
+  algorithm: q_learning   # q_learning | sarsa | random
   gamma: 0.99
   initial_q: 0.0
   epsilon:

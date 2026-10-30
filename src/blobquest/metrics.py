@@ -61,9 +61,12 @@ class TrainingHistory:
     episodes: list[EpisodeRecord] = field(default_factory=list)
     evaluations: list[EvalRecord] = field(default_factory=list)
     visits: np.ndarray = field(init=False)
+    explored: np.ndarray = field(init=False)
+    """Cells the blob has stood on or passed through at least once (the fog-of-war mask)."""
 
     def __post_init__(self) -> None:
         self.visits = np.zeros((self.rows, self.cols), dtype=np.int64)
+        self.explored = np.zeros((self.rows, self.cols), dtype=bool)
 
     def column(self, name: str) -> np.ndarray:
         """Values of one :class:`EpisodeRecord` field across all episodes."""

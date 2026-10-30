@@ -84,6 +84,7 @@ class BlobEnv:
         self._speed_left = 0
         self._steps = 0
         self._done = True
+        self._entered: list[Position] = []
 
     @property
     def num_actions(self) -> int:
@@ -94,6 +95,11 @@ class BlobEnv:
     def position(self) -> Position:
         """Current blob position (for logging and plots, not for the agent)."""
         return self._pos
+
+    @property
+    def cells_entered(self) -> tuple[Position, ...]:
+        """Every cell entered during the last step, in order (empty after a wall bump)."""
+        return tuple(self._entered)
 
     @property
     def energy(self) -> int:
@@ -125,6 +131,7 @@ class BlobEnv:
         self._speed_left = 0
         self._steps = 0
         self._done = False
+        self._entered = []
         return self.observe()
 
     def step(self, action: int) -> StepResult:
@@ -136,6 +143,7 @@ class BlobEnv:
 
         rewards = self._rewards
         events: list[Event] = []
+        self._entered = []
         self._steps += 1
         reward = rewards.step
 
@@ -161,6 +169,7 @@ class BlobEnv:
                     events.append(Event.WALL_BUMP)
                 break
             self._pos = target
+            self._entered.append(target)
             tile_reward, outcome, stop = self._enter(target, events)
             reward += tile_reward
             if stop:

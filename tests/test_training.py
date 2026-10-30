@@ -5,7 +5,7 @@ import pytest
 
 from blobquest.cli import main
 from blobquest.metrics import moving_average
-from blobquest.persistence import EPISODES_FILE, PLOTS_DIR, QTABLE_FILE, load_run
+from blobquest.persistence import EPISODES_FILE, MISTAKES_FILE, PLOTS_DIR, QTABLE_FILE, load_run
 from blobquest.render import policy_and_values, render_world
 from blobquest.trainer import Trainer
 from tests.conftest import make_config
@@ -72,10 +72,13 @@ def test_cli_train_and_evaluate(tmp_path: Path, capsys: pytest.CaptureFixture[st
     save_config(_small_config().with_overrides(output={"runs_dir": str(tmp_path / "runs")}), config_path)
     assert main(["train", "--config", str(config_path), "--episodes", "300"]) == 0
     run_dir = next((tmp_path / "runs").iterdir())
-    for name in (EPISODES_FILE, QTABLE_FILE, "config.yaml", "world.txt", "summary.yaml"):
+    for name in (EPISODES_FILE, MISTAKES_FILE, QTABLE_FILE, "config.yaml", "world.txt", "summary.yaml"):
         assert (run_dir / name).is_file()
     pngs = sorted(p.name for p in (run_dir / PLOTS_DIR).glob("*.png"))
-    assert len(pngs) == 8
+    assert len(pngs) == 9
+    assert "mistakes.png" in pngs
+    out = capsys.readouterr().out
+    assert "What the blob saw" in out and "True map" in out and "Deadliest cells" in out
 
     config, world, q = load_run(run_dir)
     assert config.training.episodes == 300

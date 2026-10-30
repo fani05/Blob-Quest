@@ -14,12 +14,14 @@ from blobquest.world import Position, World
 ARROWS: tuple[str, ...] = ("↑", "→", "↓", "←", "↗", "↘", "↙", "↖")
 PATH_CHAR = "*"
 BLOB_CHAR = "O"
+FOG_CHAR = "?"
 NO_POLICY = -1
 
 LEGEND = (
     f"{START_CHAR} start  G goal  # wall  T trap  X pit  D drain  "
     f"E energy  S speed  R reset  {PATH_CHAR} path  {BLOB_CHAR} blob"
 )
+FOG_LEGEND = f"{FOG_CHAR} never visited during training"
 
 
 def policy_and_values(
@@ -66,6 +68,28 @@ def render_world(
             for c in range(world.cols):
                 if world.tile_at((r, c)) is Tile.EMPTY and policy[r, c] != NO_POLICY:
                     chars[r][c] = ARROWS[policy[r, c]]
+    _mark_path(chars, world, path)
+    return "\n".join(" ".join(row) for row in chars)
+
+
+def render_fog(world: World, explored: np.ndarray, path: Sequence[Position] | None = None) -> str:
+    """Render the map as the blob knows it: cells it never entered show ``?``.
+
+    ``explored`` is a boolean ``(rows, cols)`` mask (``TrainingHistory.explored``).
+    Explored cells show their real tile; ``path`` is marked as in :func:`render_world`.
+    """
+    if explored.shape != (world.rows, world.cols):
+        raise ValueError(f"explored mask shape {explored.shape} does not match map {(world.rows, world.cols)}")
+    chars = [
+        [TILE_CHARS[world.tile_at((r, c))] if explored[r, c] else FOG_CHAR for c in range(world.cols)]
+        for r in range(world.rows)
+    ]
+    _mark_path(chars, world, path)
+    return "\n".join(" ".join(row) for row in chars)
+
+
+def _mark_path(chars: list[list[str]], world: World, path: Sequence[Position] | None) -> None:
+    """Overlay ``*`` on empty path cells, ``O`` where the blob stopped, and ``@`` at the start."""
     if path:
         for r, c in path:
             if world.tile_at((r, c)) is Tile.EMPTY:
@@ -76,4 +100,15 @@ def render_world(
     sr, sc = world.start
     if not path or path[-1] != world.start:
         chars[sr][sc] = START_CHAR
-    return "\n".join(" ".join(row) for row in chars)
+
+
+def side_by_side(left: str, right: str, left_title: str = "", right_title: str = "", gap: int = 4) -> str:
+    """Place two multi-line text blocks next to each other, each under an optional title."""
+    titled = bool(left_title or right_title)
+    left_lines = ([left_title] if titled else []) + left.splitlines()
+    right_lines = ([right_title] if titled else []) + right.splitlines()
+    width = max((len(line) for line in left_lines), default=0) + gap
+    height = max(len(left_lines), len(right_lines))
+    left_lines += [""] * (height - len(left_lines))
+    right_lines += [""] * (height - len(right_lines))
+    return "\n".join(f"{a:<{width}}{b}".rstrip() for a, b in zip(left_lines, right_lines, strict=True))
