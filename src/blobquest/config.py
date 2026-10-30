@@ -162,6 +162,8 @@ class AgentConfig:
     """Learning algorithm and its hyper-parameters."""
 
     algorithm: Algorithm = "q_learning"
+    sensing: bool = False
+    """Add the 4 neighbouring tiles to the state, for cells visited in earlier episodes (else FOG)."""
     gamma: float = 0.99
     initial_q: float = 0.0
     epsilon: ScheduleConfig = field(default_factory=ScheduleConfig)

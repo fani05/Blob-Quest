@@ -6,6 +6,7 @@ Uses matplotlib's object-oriented API with the Agg canvas directly (no
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 import numpy as np
@@ -17,7 +18,7 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 
 from blobquest.config import OutputConfig
-from blobquest.env import action_deltas
+from blobquest.env import Outcome, action_deltas
 from blobquest.metrics import TrainingHistory, moving_average
 from blobquest.mistakes import MistakeLog
 from blobquest.render import NO_POLICY
@@ -308,3 +309,28 @@ def save_all_plots(
     if mistakes is not None:
         paths.append(plot_mistakes(mistakes, world, len(history.episodes), cfg, out_dir / "mistakes.png"))
     return paths
+
+
+ALGORITHM_COLORS: dict[str, str] = {"q_learning": SERIES[0], "sarsa": SERIES[1], "random": INK_MUTED}
+
+
+def plot_comparison(histories: Mapping[str, Sequence[TrainingHistory]], cfg: OutputConfig, path: Path) -> Path:
+    """Training success rate per algorithm: mean across seeds, band from min to max."""
+    fig, ax = _figure(cfg)
+    window = cfg.moving_average_window
+    for i, (algorithm, runs) in enumerate(histories.items()):
+        color = ALGORITHM_COLORS.get(algorithm, SERIES[(i + 2) % len(SERIES)])
+        curves = np.array(
+            [moving_average((h.column("outcome") == Outcome.GOAL.value).astype(np.float64), window) for h in runs]
+        )
+        episodes = np.arange(1, curves.shape[1] + 1)
+        if len(runs) > 1:
+            ax.fill_between(episodes, curves.min(axis=0), curves.max(axis=0), color=color, alpha=RAW_ALPHA, linewidth=0)
+        ax.plot(
+            episodes, curves.mean(axis=0), color=color, linewidth=LINE_WIDTH, label=f"{algorithm} ({len(runs)} seeds)"
+        )
+    ax.set_ylim(0.0, 1.05)
+    ax.set_xlabel("episode")
+    ax.set_ylabel(f"success rate (moving average {window})")
+    ax.legend(frameon=False, labelcolor=INK)
+    return _finish(fig, ax, "Algorithms on the same map: mean over seeds, band = min to max", path, cfg.plot_dpi)

@@ -47,6 +47,7 @@ rewards:
 
 agent:
   algorithm: q_learning   # q_learning | sarsa | random
+  sensing: false          # true: state also holds the 4 neighbour tiles the blob has already visited
   gamma: 0.99
   initial_q: 0.0
   epsilon:

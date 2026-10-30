@@ -23,6 +23,7 @@ WORLD_FILE = "world.txt"
 EPISODES_FILE = "episodes.csv"
 EVALS_FILE = "evaluations.csv"
 MISTAKES_FILE = "mistakes.csv"
+EXPLORED_FILE = "explored.npy"
 SUMMARY_FILE = "summary.yaml"
 PLOTS_DIR = "plots"
 
@@ -72,6 +73,7 @@ def save_run(
     (run_dir / WORLD_FILE).write_text("\n".join(world.to_layout()) + "\n", encoding="utf-8")
     save_q_table(agent, run_dir / QTABLE_FILE)
     np.save(run_dir / "visits.npy", history.visits)
+    np.save(run_dir / EXPLORED_FILE, history.explored)
     _write_csv(run_dir / EPISODES_FILE, EPISODE_FIELDS, [astuple(r) for r in history.episodes])
     _write_csv(run_dir / EVALS_FILE, EVAL_FIELDS, [astuple(r) for r in history.evaluations])
     if mistakes is not None:
@@ -89,3 +91,9 @@ def load_run(run_dir: str | Path) -> tuple[Config, World, np.ndarray]:
     layout = (run_dir / WORLD_FILE).read_text(encoding="utf-8").splitlines()
     world = World.from_layout(layout, config.world.max_boosters)
     return config, world, load_q_table(run_dir / QTABLE_FILE)
+
+
+def load_explored(run_dir: str | Path) -> np.ndarray | None:
+    """Cells the blob had visited by the end of a saved run, or ``None`` for older runs."""
+    path = Path(run_dir) / EXPLORED_FILE
+    return np.load(path) if path.is_file() else None

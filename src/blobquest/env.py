@@ -5,8 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
+import numpy as np
+
 from blobquest.config import Config
-from blobquest.state import State, energy_bucket
+from blobquest.state import FOG, NEIGHBOUR_OFFSETS, State, energy_bucket
 from blobquest.tiles import Tile
 from blobquest.world import Position, World
 
@@ -85,6 +87,8 @@ class BlobEnv:
         self._steps = 0
         self._done = True
         self._entered: list[Position] = []
+        self._sensing = config.agent.sensing
+        self._known = np.zeros((world.rows, world.cols), dtype=bool)
 
     @property
     def num_actions(self) -> int:
@@ -107,9 +111,25 @@ class BlobEnv:
         return self._energy
 
     @property
+    def drain_left(self) -> int:
+        """Steps of energy drain still to pay (0 when no drain is active)."""
+        return self._drain_left
+
+    @property
+    def speed_left(self) -> int:
+        """Moves left on the current speed boost (0 when none is active)."""
+        return self._speed_left
+
+    @property
     def steps(self) -> int:
         """Steps taken in the current episode."""
         return self._steps
+
+    def set_knowledge(self, known: np.ndarray) -> None:
+        """Set which cells count as visited for sensing (copied; used until changed)."""
+        if known.shape != self._known.shape:
+            raise ValueError(f"knowledge mask shape {known.shape} does not match map {self._known.shape}")
+        self._known = known.astype(bool, copy=True)
 
     def observe(self) -> State:
         """Return the blob's current state."""
@@ -120,7 +140,18 @@ class BlobEnv:
             used_boosters_mask=self._used_mask,
             drain_active=self._drain_left > 0,
             speed_active=self._speed_left > 0,
+            neighbours=self._sense() if self._sensing else (),
         )
+
+    def _sense(self) -> tuple[int, ...]:
+        """Tile of each neighbour the blob already knows, ``FOG`` for the rest."""
+        r, c = self._pos
+        seen = []
+        for dr, dc in NEIGHBOUR_OFFSETS:
+            cell = (r + dr, c + dc)
+            known = self.world.is_passable(cell) and self._known[cell]
+            seen.append(int(self.world.tile_at(cell)) if known else FOG)
+        return tuple(seen)
 
     def reset(self) -> State:
         """Start a new episode at the start cell with full initial energy."""

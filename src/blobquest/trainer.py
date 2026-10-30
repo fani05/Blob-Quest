@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 
 import numpy as np
 
 from blobquest.agents import TabularAgent, make_agent
 from blobquest.config import Config
-from blobquest.env import BlobEnv, Event, Outcome
+from blobquest.env import BlobEnv, Event, Outcome, StepResult
 from blobquest.memory import NO_ACTION, ReplayMemory, Transition
 from blobquest.metrics import EpisodeRecord, EvalRecord, TrainingHistory
 from blobquest.mistakes import MistakeLog
@@ -33,22 +33,46 @@ class Rollout:
 
 
 def make_encoder(world: World, config: Config) -> StateEncoder:
-    """State encoder sized for ``world`` and the energy settings in ``config``."""
-    return StateEncoder(world.rows, world.cols, config.energy.num_buckets, world.num_boosters)
+    """State encoder sized for ``world`` and the energy and sensing settings in ``config``."""
+    sensing_grid = world.grid if config.agent.sensing else None
+    return StateEncoder(world.rows, world.cols, config.energy.num_buckets, world.num_boosters, sensing_grid)
+
+
+@dataclass(frozen=True)
+class GreedyStep:
+    """One step of a greedy episode, with the environment status right after it."""
+
+    action: int
+    result: StepResult
+    position: Position
+    cells_entered: tuple[Position, ...]
+    energy: int
+    drain_left: int
+    speed_left: int
+
+
+def greedy_steps(
+    env: BlobEnv, agent: TabularAgent, encoder: StateEncoder, rng: np.random.Generator
+) -> Iterator[GreedyStep]:
+    """Reset ``env`` and yield each step of one episode played with epsilon = 0."""
+    state = env.reset()
+    while True:
+        action = agent.greedy_action(encoder.encode(state), rng)
+        result = env.step(action)
+        yield GreedyStep(action, result, env.position, env.cells_entered, env.energy, env.drain_left, env.speed_left)
+        state = result.state
+        if result.terminated or result.truncated:
+            return
 
 
 def greedy_rollout(env: BlobEnv, agent: TabularAgent, encoder: StateEncoder, rng: np.random.Generator) -> Rollout:
     """Play one episode with epsilon = 0 and record the visited cells."""
-    state = env.reset()
-    path = [env.position]
+    path = [env.world.start]
     total = 0.0
-    while True:
-        result = env.step(agent.greedy_action(encoder.encode(state), rng))
-        total += result.reward
-        path.append(env.position)
-        state = result.state
-        if result.terminated or result.truncated:
-            return Rollout(tuple(path), total, env.steps, result.outcome, env.energy)
+    for step in greedy_steps(env, agent, encoder, rng):
+        total += step.result.reward
+        path.append(step.position)
+    return Rollout(tuple(path), total, env.steps, step.result.outcome, env.energy)
 
 
 class Trainer:
@@ -104,6 +128,8 @@ class Trainer:
         td_errors: list[float] = []
         total = 0.0
 
+        # Sensing only knows cells from earlier episodes, so freeze the snapshot now.
+        env.set_knowledge(self.history.explored)
         s = enc.encode(env.reset())
         self.history.explored[env.position] = True
         a = agent.act(s, epsilon)
@@ -147,6 +173,7 @@ class Trainer:
 
     def evaluate(self, episode: int) -> EvalRecord:
         """Greedy evaluation without learning, using its own random stream."""
+        self.env.set_knowledge(self.history.explored)
         rollouts = [
             greedy_rollout(self.env, self.agent, self.encoder, self._eval_rng)
             for _ in range(self.config.training.eval_episodes)
@@ -160,7 +187,13 @@ class Trainer:
 
     def final_rollout(self) -> Rollout:
         """One greedy episode with the trained agent (for rendering and plots)."""
+        self.env.set_knowledge(self.history.explored)
         return greedy_rollout(self.env, self.agent, self.encoder, self._eval_rng)
+
+    def replay_steps(self) -> Iterator[GreedyStep]:
+        """Step-by-step greedy episode with the trained agent (for ``blobquest replay``)."""
+        self.env.set_knowledge(self.history.explored)
+        return greedy_steps(self.env, self.agent, self.encoder, self._eval_rng)
 
     def _progress_line(self, episode: int) -> str:
         """One-line progress report for the terminal."""

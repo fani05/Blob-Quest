@@ -37,14 +37,21 @@ blobquest train --config configs/sarsa.yaml         # SARSA
 blobquest train --config configs/handmade.yaml      # hand-drawn map with diagonals
 blobquest train --episodes 20000 --seed 1 --map-seed 3
 blobquest evaluate runs/<run-folder> --episodes 5   # replay a saved greedy policy
+blobquest replay runs/<run-folder> --delay 0.3      # watch one greedy episode step by step
+blobquest compare --config configs/default.yaml --seeds 5   # random vs q_learning vs sarsa
 
 pytest
 ruff check src tests
 ```
 
 Each run writes `runs/<name>_<timestamp>/` containing `config.yaml`, `world.txt`,
-`q_table.npz`, `episodes.csv`, `evaluations.csv`, `summary.yaml`, `visits.npy` and `plots/`.
-The plots are rewards, outcomes, steps, schedules, evaluation, policy map, value map and visits.
+`q_table.npz`, `episodes.csv`, `evaluations.csv`, `mistakes.csv`, `summary.yaml`, `visits.npy`,
+`explored.npy` and `plots/`. The plots are rewards, outcomes, steps, schedules, evaluation,
+policy map, value map, visits and mistakes.
+
+`compare` trains every algorithm on the same map with seeds `training.seed .. training.seed + N - 1`,
+prints a mean ± std table and writes `runs/<name>_compare_<timestamp>/` with `comparison.png`,
+`comparison.csv`, `config.yaml` and `world.txt`.
 
 ## Layout
 
@@ -55,15 +62,17 @@ src/blobquest/
   world.py        hidden map: seeded generation, layout parsing, solvability check
   state.py        State tuple and integer encoder for the Q-table
   env.py          dynamics: energy, tiles, speed, drain, termination
-  agents/         TabularAgent base, Q-learning, SARSA
+  agents/         TabularAgent base, Q-learning, SARSA, random baseline
   schedules.py    epsilon / alpha schedules
   memory.py       replay memory that rehearses mistakes more often
-  trainer.py      training loop, evaluation, greedy rollouts
+  trainer.py      training loop, evaluation, greedy rollouts and step-by-step replays
+  mistakes.py     failed-episode log, repeated-mistake rate, deadliest cells
+  compare.py      train several algorithms on one map and seeds, results table
   metrics.py      per-episode records and summaries
   plots.py        PNG plots (matplotlib Agg, no pyplot)
-  render.py       ASCII map, path and policy rendering
+  render.py       ASCII map, path, policy, fog-of-war and replay frames
   persistence.py  save and load runs
-  cli.py          `blobquest train | evaluate | show-map`
+  cli.py          `blobquest train | evaluate | replay | compare | show-map`
 configs/          default.yaml, sarsa.yaml, handmade.yaml
 tests/            pytest suite
 ```
