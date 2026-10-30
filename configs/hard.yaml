@@ -1,0 +1,30 @@
+# A harder random map: 20x20, more walls, traps, pits and drains, and less energy
+# than the default. Only the differences from the defaults are listed.
+#
+# The generator guarantees a route to the goal that avoids walls, pits and resets,
+# but not that it is cheap: traps and drains on the way can still run the blob dry,
+# so the energy boosters matter here.
+
+world:
+  rows: 20
+  cols: 20
+  map_seed: 11
+  wall_density: 0.2
+  num_traps: 16
+  num_pits: 10
+  num_drains: 8
+  num_energy_boosters: 2
+  num_speed_boosters: 1
+  num_resets: 3
+
+energy:
+  initial: 45           # default 50
+  maximum: 55           # default 60
+  trap_loss: 12         # default 10
+
+training:
+  episodes: 20000
+  max_steps_per_episode: 300
+
+output:
+  run_name: blobquest_hard

@@ -314,8 +314,13 @@ def save_all_plots(
 ALGORITHM_COLORS: dict[str, str] = {"q_learning": SERIES[0], "sarsa": SERIES[1], "random": INK_MUTED}
 
 
-def plot_comparison(histories: Mapping[str, Sequence[TrainingHistory]], cfg: OutputConfig, path: Path) -> Path:
-    """Training success rate per algorithm: mean across seeds, band from min to max."""
+def plot_comparison(
+    histories: Mapping[str, Sequence[TrainingHistory]],
+    cfg: OutputConfig,
+    path: Path,
+    title: str = "Algorithms on the same map",
+) -> Path:
+    """Training success rate per variant: mean across seeds, band from min to max."""
     fig, ax = _figure(cfg)
     window = cfg.moving_average_window
     for i, (algorithm, runs) in enumerate(histories.items()):
@@ -333,4 +338,4 @@ def plot_comparison(histories: Mapping[str, Sequence[TrainingHistory]], cfg: Out
     ax.set_xlabel("episode")
     ax.set_ylabel(f"success rate (moving average {window})")
     ax.legend(frameon=False, labelcolor=INK)
-    return _finish(fig, ax, "Algorithms on the same map: mean over seeds, band = min to max", path, cfg.plot_dpi)
+    return _finish(fig, ax, f"{title}: mean over seeds, band = min to max", path, cfg.plot_dpi)
