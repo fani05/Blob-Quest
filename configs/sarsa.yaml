@@ -1,0 +1,14 @@
+# SARSA on the default map. Only the differences from the defaults are listed.
+#
+# Replay memory is disabled: SARSA is on-policy, so replaying old transitions
+# (whose next_action came from an older, more exploratory policy) would mix
+# stale behaviour into its targets.
+
+agent:
+  algorithm: sarsa
+
+memory:
+  enabled: false
+
+output:
+  run_name: blobquest_sarsa

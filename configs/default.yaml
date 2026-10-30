@@ -1,0 +1,89 @@
+# Blob Quest default configuration: Q-learning on a random 15x15 map.
+# Any key left out falls back to the default in src/blobquest/config.py.
+
+world:
+  rows: 15
+  cols: 15
+  start: [0, 0]
+  goal: null            # null = bottom-right corner
+  map_seed: 7           # same seed -> same map
+  layout: null          # or a list of strings, see configs/handmade.yaml
+  wall_density: 0.15
+  num_traps: 6
+  num_pits: 4
+  num_drains: 4
+  num_energy_boosters: 2
+  num_speed_boosters: 1
+  num_resets: 2
+  max_boosters: 6       # caps the used_boosters_mask size (2^n states)
+  max_generation_attempts: 500
+
+energy:
+  initial: 50
+  maximum: 60
+  step_cost: 1
+  drain_step_cost: 2
+  drain_duration: 5
+  trap_loss: 10
+  booster_gain: 15
+  num_buckets: 5
+
+movement:
+  diagonals: false
+  speed_cells: 2
+  speed_duration: 3
+
+rewards:
+  goal: 100.0
+  pit: -100.0
+  exhausted: -50.0
+  step: -1.0
+  drain_step: -1.0
+  trap: -10.0
+  wall_bump: -2.0
+  reset: -5.0
+  energy_booster: 2.0
+  speed_booster: 1.0
+
+agent:
+  algorithm: q_learning   # q_learning | sarsa
+  gamma: 0.99
+  initial_q: 0.0
+  epsilon:
+    kind: linear          # constant | linear | exponential
+    start: 1.0
+    end: 0.05
+    decay_fraction: 0.7
+    decay_rate: 0.999
+  alpha:
+    kind: linear
+    start: 0.3
+    end: 0.05
+    decay_fraction: 0.8
+    decay_rate: 0.999
+
+memory:
+  enabled: true
+  capacity: 20000
+  replay_updates: 64
+  mistake_threshold: -10.0
+  mistake_weight: 4.0
+
+training:
+  episodes: 10000
+  max_steps_per_episode: 200
+  seed: 42
+  eval_every: 100
+  eval_episodes: 5
+  log_every: 1000
+
+output:
+  runs_dir: runs
+  run_name: blobquest
+  save_plots: true
+  moving_average_window: 100
+  outcome_window: 100
+  plot_dpi: 120
+  figure_width: 9.0
+  figure_height: 5.0
+  map_cell_inches: 0.45

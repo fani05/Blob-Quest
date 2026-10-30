@@ -1,0 +1,29 @@
+# A hand-drawn 10x10 map with diagonal moves enabled.
+# Characters: @ start, G goal, . empty, # wall, T trap, X pit, D drain,
+#             E energy booster, S speed booster, R reset.
+
+world:
+  layout:
+    - "@..#......"
+    - ".#.#.XX.E."
+    - ".#...T...."
+    - ".####.##X."
+    - "...D..#..."
+    - "XX.#S.#.R."
+    - "...#..T..."
+    - ".R.####.#."
+    - "...D....XX"
+    - ".X..T#E..G"
+
+energy:
+  initial: 35
+  maximum: 45
+
+movement:
+  diagonals: true
+
+training:
+  episodes: 6000
+
+output:
+  run_name: blobquest_handmade
